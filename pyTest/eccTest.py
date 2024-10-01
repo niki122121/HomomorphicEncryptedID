@@ -1,3 +1,5 @@
+import math
+import random as rnd
 from typing import Tuple
 
 # secp256k1 parameters
@@ -12,6 +14,34 @@ G = (Gx, Gy)  # Generator point
 # Modular inverse
 def mod_inv(x: int, p: int) -> int:
     return pow(x, p - 2, p)
+
+# Function to compute modular square root (using p % 4 == 3 case)
+def modular_sqrt(a: int, p: int) -> int:
+    if pow(a, (p - 1) // 2, p) == 1:
+        return pow(a, (p + 1) // 4, p)
+    else:
+        return None
+
+# Function to check if a point is valid on the curve
+def is_point_on_curve(x: int, y: int) -> bool:
+    return (y * y - (x * x * x + a * x + b)) % p == 0
+
+# Function to find the corresponding y for a given x on the curve
+def find_y(x: int) -> int:
+    y_sq = (x**3 + a*x + b) % p
+    return modular_sqrt(y_sq, p)    # can return None
+
+# Hash to curve (simple version using SHA256)
+def hash_to_curve(value: int) -> Tuple[int, int]:
+    x = value
+    for _ in range(1000):
+        potential_y = find_y(x)
+        if(potential_y is None):
+            x = (x + 1) % p
+        else:
+            return (x, potential_y)
+    exit("ERROR: tried to map 1000 times and didn't find a valid curve point")
+    return None
 
 # Elliptic curve point addition
 def point_add(P: Tuple[int, int], Q: Tuple[int, int]) -> Tuple[int, int]:
@@ -59,31 +89,49 @@ def point_neg(P: Tuple[int, int]) -> Tuple[int, int]:
 def point_subtract(P: Tuple[int, int], Q: Tuple[int, int]) -> Tuple[int, int]:
     return point_add(P, point_neg(Q))
 
-# Check if a point is on the elliptic curve
-def is_point_on_curve(P: Tuple[int, int]) -> bool:
-    if P == (None, None):
-        return True
-    x, y = P
-    return (y * y - x * x * x - a * x - b) % p == 0
-
-# Example usage with point addition and subtraction
-if __name__ == "__main__":
-    # Generator point G
+def basicTest():
     P = G
     Q = point_double(G)  # Q = 2G
 
-    # Add points P + Q
     R = point_add(P, Q)
     print(f"P + Q = {R}")
 
-    # Subtract points P - Q
     D = point_subtract(P, Q)
     print(f"P - Q = {D}")
 
-    # Check if the result is on the curve
-    assert is_point_on_curve(P), "P is not on the curve"
-    assert is_point_on_curve(Q), "Q is not on the curve"
-    assert is_point_on_curve(R), "R is not on the curve"
-    assert is_point_on_curve(D), "D is not on the curve"
 
-    print(f"All points are on the curve.")
+def eucDist(arr1, arr2, max_value) -> float:
+    normArr1 = [x / max_value for x in arr1]
+    normArr2 = [x / max_value for x in arr2]
+    sumAux = 0
+    for i in range(len(arr1)):
+        sumAux =  sumAux + ((normArr1[i] - normArr2[i])**2)
+    return math.sqrt(sumAux)/math.sqrt(len(arr1))
+
+def cosDist(arr1, arr2) -> float:
+    sumAux = 0
+    for i in range(len(arr1)):
+        sumAux = sumAux + (arr1[i] * arr2[i])
+
+    norm_a = math.sqrt(sum(x ** 2 for x in arr1))
+    norm_b = math.sqrt(sum(y ** 2 for y in arr2))
+    cos_similarity = sumAux / (norm_a * norm_b)
+    return 1 - cos_similarity
+
+def pointDist(arr1, arr2) -> float:
+    return 0
+
+def distTest() -> int:
+    maxVal = 1 << 32
+    set1 = [rnd.randint(1, maxVal - 1) for _ in range(128)]
+    set2 = [rnd.randint(1, maxVal - 1) for _ in range(128)]
+
+    points1 = [hash_to_curve(v) for v in set1]
+    points2 = [hash_to_curve(v) for v in set2]
+
+    print(eucDist(set1,set2, maxVal))
+    print(cosDist(set1,set2))
+    #print()
+
+
+distTest()
